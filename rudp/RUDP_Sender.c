@@ -11,10 +11,7 @@
 #define PACKET_SIZE 524
 
 void sendFile(int socket, FILE *file, const struct sockaddr_in *receiver_addr,const struct sockaddr_in *sender_addr, long file_size) {
-    printf("Sending file...\n");
-
-    // Send file size first
-    
+    // Send file size first    
     RUDP_send(socket, (char *)&file_size, sizeof(long), (struct sockaddr *)receiver_addr, (struct sockaddr *)sender_addr, sizeof(*receiver_addr), (uint16_t)0);
 
     // Send file data in packets
@@ -31,8 +28,6 @@ void sendFile(int socket, FILE *file, const struct sockaddr_in *receiver_addr,co
         RUDP_send(socket, buffer, bytesRead, (struct sockaddr *)receiver_addr, (struct sockaddr *)sender_addr, sizeof(*receiver_addr), (uint16_t)ack_counter);
         ack_counter++;            
     }
-
-    printf("File sent successfully.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -40,8 +35,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s <receiver_ip> <port> <file_path>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-    printf("start\n");
-
     struct sockaddr_in receiver_addr;
     memset(&receiver_addr, 0, sizeof(receiver_addr));
     receiver_addr.sin_family = AF_INET;
@@ -52,12 +45,10 @@ int main(int argc, char *argv[]) {
     memset(&sender_addr, 0, sizeof(sender_addr));
     sender_addr.sin_family = AF_INET;
     sender_addr.sin_port = htons(atoi("9997"));
-    printf("sender_addr.sin_port: %d", sender_addr.sin_port);
     inet_aton("127.0.0.1", &sender_addr.sin_addr); 
     char *handshake_message = "RUDP_HANDSHAKE";
 
     int socket = RUDP_socket(&sender_addr, 1);
-    printf("src sct: %d", socket);
     int send_result = RUDP_send(socket, handshake_message, (size_t)strlen(handshake_message), (struct sockaddr *)&receiver_addr,(struct sockaddr *)&sender_addr, sizeof(receiver_addr), (uint16_t)0);
 
     if (send_result == -1) {
@@ -78,7 +69,6 @@ int main(int argc, char *argv[]) {
         fseek(file, 0, SEEK_END);
         long file_size = ftell(file);
         fseek(file, 0, SEEK_SET);
-        printf("send file");
 
         sendFile(socket, file, &receiver_addr, &sender_addr, file_size);
 

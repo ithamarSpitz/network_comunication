@@ -11,7 +11,6 @@
 #define MAX_PACKET_SIZE 524
 // Function to receive the file using RUDP
 double receiveFile(int sockfd, FILE *file, const struct sockaddr *addr) {
-    printf("Receiving file...\n");
     // Receive file size first
     long file_size;
     if(RUDP_receive(sockfd, (char *)&file_size, sizeof(long),(struct sockaddr *)&addr) == -2)
@@ -22,36 +21,27 @@ double receiveFile(int sockfd, FILE *file, const struct sockaddr *addr) {
     size_t totalBytesReceived = 0;
 
     while (totalBytesReceived < file_size) {
-        printf("totalBytesReceived: %ld\n file_size: %ld\n", totalBytesReceived, file_size);
         size_t bytesRead = RUDP_receive(sockfd, buffer, sizeof(buffer),(struct sockaddr *)&addr);
-        printf("bytesRead: %ld", bytesRead);
-        // Check if the received data is an acknowledgment
-        if (bytesRead == 0) {
-            printf("Received acknowledgment.\n");
+        if (bytesRead > 0) {
+            // Normal data, write to file
+            fwrite(buffer, 1, bytesRead, file);
+            if (ferror(file)) {
+                perror("Error writing to file");
+                exit(EXIT_FAILURE);
+            }
+            totalBytesReceived += bytesRead;
+            fflush(file);
         } else {
-            if (bytesRead > 0) {
-                // Normal data, write to file
-                fwrite(buffer, 1, bytesRead, file);
-                if (ferror(file)) {
-                    perror("Error writing to file");
-                    exit(EXIT_FAILURE);
-                }
-                totalBytesReceived += bytesRead;
-                fflush(file);
-            } else {
-                if(bytesRead == -2){
-                    printf("exit\n");
-                    return 0;
-                }else{
-                    // Handle error or timeout, possibly request retransmission
-                    printf("Error receiving data.\n");
-                }
+            if(bytesRead == -2){
+                printf("exit\n");
+                return 0;
+            }else{
+                // Handle error or timeout, possibly request retransmission
+                printf("Error receiving data.\n");
             }
         }
     }
     clock_t end_time = clock();
-
-    printf("File received successfully.\n");
     return ((double)end_time - (double)start_time);
 }
 
@@ -94,18 +84,18 @@ int main(int argc, char *argv[]) {
 
     // Receive the file using RUDP
     double file_time = 0.0;
-    int counter = 1;
+    int counter = 0;
     double avrage_time = 0;
     do{
         file_time = receiveFile(dest_socket, received_file, (struct sockaddr *)&server_addr);
         if(file_time == 0.0)
             break;
-        printf("file time is: %f", file_time);
-        avrage_time = (((avrage_time*(double)counter-1)+file_time)/(double)counter);
+        printf("file time is: %f\n", file_time);
+        avrage_time = (((avrage_time*(double)counter)+file_time)/((double)counter+1));
         counter++;
 
     }while(file_time != 0.0);
-    printf("avarage time is %f", avrage_time);
+    printf("avarage time is %f\n", avrage_time);
 
     // Clean up
     fclose(received_file);

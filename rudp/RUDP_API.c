@@ -58,9 +58,7 @@ void print_sockaddr(const struct sockaddr *addr) {
     }
 }
 
-RUDPPacket create_packet(void *data, size_t length, const struct sockaddr *dest_addr, socklen_t addrlen, uint16_t ack_number){
-    print_sockaddr(dest_addr);
-    
+RUDPPacket create_packet(void *data, size_t length, const struct sockaddr *dest_addr, socklen_t addrlen, uint16_t ack_number){    
     RUDPPacket packet;
     memset(&packet, 0, sizeof(packet));
     packet.header.length = htons(length);
@@ -83,26 +81,19 @@ RUDPPacket create_packet(void *data, size_t length, const struct sockaddr *dest_
 }
 
 int RUDP_send_ACK(int socket, struct sockaddr_in *dest_addr, const  struct sockaddr *src_addr, socklen_t addrlen, uint16_t ack_number){
-    printf("RUDP_send_ACK\n");
-
     const char *ack_message = "RUDP_ACK";
     RUDPPacket ack_packet = create_packet(&ack_message, strlen(ack_message), (const struct sockaddr *)src_addr, addrlen, ack_number);
-    printf("addrlen: %d",addrlen);
-    print_sockaddr((const struct sockaddr *)dest_addr);
     ssize_t sent_bytes = sendto(socket, &ack_packet, sizeof(ack_packet), 0, (const struct sockaddr *)dest_addr, addrlen);
     if (sent_bytes == -1) {
         perror("Error sending data");
         return -1;
     }    
-    printf("ack sent\n");
     return 0;
 }
 
 int RUDP_receive_ACK(int socket, uint16_t ack_number){
     RUDPPacket packet;
-    printf("waiting for ack\n");
     ssize_t recv_bytes = recv(socket, &packet, sizeof(packet), 0);
-    printf("ack received\n");
     if (recv_bytes == -1) {
         perror("Error receiving data");
         return -1;
@@ -135,7 +126,6 @@ int RUDP_socket(struct sockaddr_in *address, int bind_sock) {
 }
 
 int RUDP_send(int socket, char *data, size_t length, const struct sockaddr *dest_addr,const struct sockaddr *src_addr, socklen_t addrlen, uint16_t ack_number) {
-    printf("RUDP_send -> data: %s\n",(char *)data);
     RUDPPacket packet = create_packet(data, length, (const struct sockaddr *)src_addr, addrlen, ack_number);
     do{
         ssize_t sent_bytes = sendto(socket, &packet, sizeof(packet), 0, dest_addr, addrlen);
@@ -148,14 +138,11 @@ int RUDP_send(int socket, char *data, size_t length, const struct sockaddr *dest
 }
 
 int RUDP_receive(int socket, void *buffer, size_t length,const  struct sockaddr *addr) {
-    printf("RUDP_receive\n");
     RUDPPacket packet;
     struct sockaddr_in client_address;
     socklen_t addr_len = sizeof(client_address);
 
     ssize_t recv_bytes = recvfrom(socket, &packet, sizeof(packet), 0, (struct sockaddr*)&client_address, &addr_len);
-    printf("recv_bytes: %zd\n", recv_bytes);
-
     if (recv_bytes == -1) {
         perror("Error receiving data");
         return -1;
@@ -166,26 +153,17 @@ int RUDP_receive(int socket, void *buffer, size_t length,const  struct sockaddr 
     memset(&sender_addr, 0, sizeof(sender_addr));
     sender_addr.sin_family = AF_INET;
     sender_addr.sin_port = htons(packet.header.sender_port);
-    printf("port: %d\n", packet.header.sender_port);
     struct in_addr ip_addr;
     ip_addr.s_addr = packet.header.sender_ip;
-    printf("packet.header.sender_ip: %d\n", packet.header.sender_ip);
     inet_aton(inet_ntoa(ip_addr), &sender_addr.sin_addr); 
     socklen_t addrlen = sizeof(sender_addr);  // Set the addrlen
     
     uint16_t length_field = packet.header.length;
     uint16_t ack_field = ntohs(packet.header.ack_number);
     // Validate checksum and flags, handle errors if necessary
-    printf("Received packet with payload length: %d\n", ntohs(packet.header.length));
-    printf("Buffer size: %ld\n", length);
-    printf("packet.payload: %s\n",packet.payload);
     memcpy(buffer, packet.payload, ntohs(packet.header.length));
-    printf("buffer: %s\n",(char *)buffer);
-    printf("Buffer alright\n");
-    print_sockaddr((struct sockaddr *)&sender_addr);
     // Send acknowledgment
     if ((length_field >= strlen("RUDP_CLOSE") && strstr(buffer, "RUDP_CLOSE") != NULL)) {
-        printf("RUDP_CLOSE\n\n\n");
         RUDP_send_ACK(socket, &sender_addr, addr, addrlen, ack_field);
         return -2;
     }
@@ -197,7 +175,6 @@ int RUDP_receive(int socket, void *buffer, size_t length,const  struct sockaddr 
 }
 
 int RUDP_close(int socket, struct sockaddr_in *dest_addr,const struct sockaddr *src_addr, socklen_t addrlen) {
-    print_sockaddr((const struct sockaddr *)src_addr);
     char *close_message = "RUDP_CLOSE";
     RUDP_send(socket, close_message, strlen(close_message), (const struct sockaddr *)dest_addr,(struct sockaddr *)src_addr, addrlen, 0);
     close(socket);
