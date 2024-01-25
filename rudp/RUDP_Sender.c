@@ -1,70 +1,106 @@
+//RUDP_Sender.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "RUDP_API.h"
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>  // Include this for sockaddr_in
-#include <arpa/inet.h>   // Include this for inet_pton
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#define PACKET_SIZE 524
+
+void sendFile(int socket, FILE *file, const struct sockaddr_in *receiver_addr,const struct sockaddr_in *sender_addr, long file_size) {
+    printf("Sending file...\n");
+
+    // Send file size first
+    
+    RUDP_send(socket, (char *)&file_size, sizeof(long), (struct sockaddr *)receiver_addr, (struct sockaddr *)sender_addr, sizeof(*receiver_addr), (uint16_t)0);
+
+    // Send file data in packets
+    char buffer[PACKET_SIZE];
+    size_t bytesRead;
+    int ack_counter = 1;
+
+    while ((bytesRead = fread(buffer, 1, PACKET_SIZE, file)) > 0) {
+        if (ferror(file)) {
+            perror("Error reading file");
+            exit(EXIT_FAILURE);
+        }
+        // Send the packet
+        RUDP_send(socket, buffer, bytesRead, (struct sockaddr *)receiver_addr, (struct sockaddr *)sender_addr, sizeof(*receiver_addr), (uint16_t)ack_counter);
+        ack_counter++;            
+    }
+
+    printf("File sent successfully.\n");
+}
 
 int main(int argc, char *argv[]) {
-    FILE *stderr = stderr; // Add this line for stderr
-    socklen_t client_addr_len; // Add this line for socklen_t
-
     if (argc != 4) {
         fprintf(stderr, "Usage: %s <receiver_ip> <port> <file_path>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+    printf("start\n");
 
-    int port = atoi(argv[2]);
+    struct sockaddr_in receiver_addr;
+    memset(&receiver_addr, 0, sizeof(receiver_addr));
+    receiver_addr.sin_family = AF_INET;
+    receiver_addr.sin_port = htons(atoi(argv[2]));
+    inet_aton(argv[1], &receiver_addr.sin_addr);
 
-    // Define server address structure
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    struct sockaddr_in sender_addr;
+    memset(&sender_addr, 0, sizeof(sender_addr));
+    sender_addr.sin_family = AF_INET;
+    sender_addr.sin_port = htons(atoi("9997"));
+    printf("sender_addr.sin_port: %d", sender_addr.sin_port);
+    inet_aton("127.0.0.1", &sender_addr.sin_addr); 
+    char *handshake_message = "RUDP_HANDSHAKE";
 
+    int socket = RUDP_socket(&sender_addr, 1);
+    printf("src sct: %d", socket);
+    int send_result = RUDP_send(socket, handshake_message, (size_t)strlen(handshake_message), (struct sockaddr *)&receiver_addr,(struct sockaddr *)&sender_addr, sizeof(receiver_addr), (uint16_t)0);
+
+    if (send_result == -1) {
+        perror("Error sending data");
+        exit(EXIT_FAILURE);
+    }
+
+    
     FILE *file = fopen(argv[3], "rb");
-    if (file == NULL) {
-        perror("Error opening file");
-        exit(EXIT_FAILURE);
+
+    // Send the file using RUDP
+    while(1){
+        if (file == NULL) {
+            perror("Error opening file");
+            exit(EXIT_FAILURE);
+        }
+
+        fseek(file, 0, SEEK_END);
+        long file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        printf("send file");
+
+        sendFile(socket, file, &receiver_addr, &sender_addr, file_size);
+
+        // Ask the user if they want to send the file again
+        char response;
+        printf("Do you want to send the file again? (y/n): ");
+        scanf(" %c", &response);
+
+        if (response != 'y') {
+            if (response == 'n') {
+                // Send exit message to the receiver
+                break; // Exit the loop if the user doesn't want to send the file again
+            }
+            else{
+                perror("incorrect char, bye!");
+            }
+        }
     }
-
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char *file_buffer = malloc(file_size);
-    if (file_buffer == NULL) {
-        perror("Error allocating memory for file");
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
-
-    fread(file_buffer, 1, file_size, file);
-    fclose(file);
-
-    printf("Sending file...\n");
-
-    // Initialize RUDP and establish connection
-    int sockfd = RUDP_init_sender(argv[1], port);
-
-    // Send file size first
-    RUDP_send(sockfd, (char *)&file_size, sizeof(long), (struct sockaddr*)&server_addr, sizeof(server_addr));
-    printf("RUDP_send()\n");
-
-    // Send file data
-    RUDP_send(sockfd, file_buffer, file_size, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    printf("RUDP_send()\n");
-
     // Clean up
-    RUDP_close(sockfd);
-        printf("RUDP_close(sockfd)\n");
+    RUDP_close(socket, &receiver_addr, (struct sockaddr *)&sender_addr, sizeof(receiver_addr));
 
-    free(file_buffer);
-        printf("free(file_buffer)");
-
+    fclose(file);
 
     return 0;
 }
