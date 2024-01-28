@@ -7,6 +7,7 @@
 #include <time.h>
 
 #define BUFFER_SIZE 1024
+#define FILE_PATH "received_file.txt"
 
 void error(const char *msg) {
     perror(msg);
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "Receiver started. Listening on port %d with algorithm %s.\n", port, algo);
+    fprintf(stderr, "Receiver started.");
 
     // Create a socket for communication.
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -64,16 +65,16 @@ int main(int argc, char *argv[]) {
 
     listen(sockfd, 1);
 
-    fprintf(stderr, "Waiting for a connection...\n");
+    //fprintf(stderr, "Waiting for a connection...\n");
 
     // Accept a connection from a sender.
     int newsockfd = accept(sockfd, (struct sockaddr *)&sender_addr, &sender_len);
     if (newsockfd < 0)
         error("Error on accept");
 
-    fprintf(stderr, "Connection established with the Sender.\n");
+    //fprintf(stderr, "Connection established with the Sender.\n");
 
-    FILE *file = fopen("received_file.txt", "wb");
+    FILE *file = fopen(FILE_PATH, "wb");
     if (!file)
         error("Error creating file");
 
@@ -94,7 +95,7 @@ int main(int argc, char *argv[]) {
             clock_t sent_time = clock();
             double time_taken = ((double)(sent_time - prpr_time)) / CLOCKS_PER_SEC * 1000;
             double speed = (bytes_per_file/(1024.0*1024.0))/(time_taken/1000);
-            fprintf(stderr, "file arrived, duration: %.2f ms speed: %.2f mb/s\n", time_taken, speed);
+            fprintf(stderr, "duration: %.2f ms speed: %.2f mb/s\n", time_taken, speed);
             total_bytes += bytes_per_file;
             bytes_per_file = 0;
             // Accumulate total time and increment count for averaging
@@ -108,15 +109,16 @@ int main(int argc, char *argv[]) {
     }
     // Calculate and print average time
     double average_time = (count > 0) ? total_time / count : 0;
-    fprintf(stderr, "Average time taken: %.2fms\n", average_time);
+    fprintf(stderr, "Average time: %.2fms\n", average_time);
     // Calculate and print the total average speed
     double avg_speed = (total_bytes/(1024.0*1024.0))/(total_time/1000);  // Variable to accumulate total speed
     fprintf(stderr, "Average Speed: %.2f MB/s\n", avg_speed);
-    fprintf(stderr, "Files transfer completed.\n");
+    //fprintf(stderr, "Files transfer completed.\n");
 
     fclose(file);
     close(newsockfd);
     close(sockfd);
+    remove(FILE_PATH);
 
     return 0;
 }

@@ -9,6 +9,12 @@
 #include <arpa/inet.h>
 
 #define PACKET_SIZE 524
+#define FILE_PATH "random_file.txt"
+
+void createRandomFile() {
+    // Use dd command to create a random file of approximately 2 MB
+    system("dd if=/dev/urandom of=random_file.txt bs=1024 count=2000");
+}
 
 void sendFile(int socket, FILE *file, const struct sockaddr_in *receiver_addr,const struct sockaddr_in *sender_addr, long file_size) {
     // Send file size first    
@@ -31,22 +37,30 @@ void sendFile(int socket, FILE *file, const struct sockaddr_in *receiver_addr,co
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <receiver_ip> <port> <file_path>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s -ip <receiver_ip> -p <port>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+
+    printf("Creating a random file...\n");
+    createRandomFile();
+    printf("Random file created.\n");
+
     struct sockaddr_in receiver_addr;
     memset(&receiver_addr, 0, sizeof(receiver_addr));
     receiver_addr.sin_family = AF_INET;
-    receiver_addr.sin_port = htons(atoi(argv[2]));
-    inet_aton(argv[1], &receiver_addr.sin_addr);
-
+    receiver_addr.sin_port = htons(atoi(argv[4]));
+    inet_pton(AF_INET, argv[2], &receiver_addr.sin_addr);
     struct sockaddr_in sender_addr;
     memset(&sender_addr, 0, sizeof(sender_addr));
     sender_addr.sin_family = AF_INET;
     sender_addr.sin_port = htons(atoi("9997"));
-    inet_aton("127.0.0.1", &sender_addr.sin_addr); 
+    inet_pton(AF_INET, "127.0.0.1", &sender_addr.sin_addr);
+
     char *handshake_message = "RUDP_HANDSHAKE";
+
+    printf("Sender started. sending a handshake.\n");
+
 
     int socket = RUDP_socket(&sender_addr, 1);
     int send_result = RUDP_send(socket, handshake_message, (size_t)strlen(handshake_message), (struct sockaddr *)&receiver_addr,(struct sockaddr *)&sender_addr, sizeof(receiver_addr), (uint16_t)0);
@@ -55,9 +69,8 @@ int main(int argc, char *argv[]) {
         perror("Error sending data");
         exit(EXIT_FAILURE);
     }
-
     
-    FILE *file = fopen(argv[3], "rb");
+    FILE *file = fopen(FILE_PATH, "rb");
 
     // Send the file using RUDP
     while(1){
@@ -91,6 +104,8 @@ int main(int argc, char *argv[]) {
     RUDP_close(socket, &receiver_addr, (struct sockaddr *)&sender_addr, sizeof(receiver_addr));
 
     fclose(file);
+
+    remove(FILE_PATH);
 
     return 0;
 }
