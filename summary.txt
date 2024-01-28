@@ -1,0 +1,35 @@
+TCP Reno and TCP Cubic are both congestion control algorithms used in TCP.
+The performance of these algorithms can vary based on network conditions.
+TCP Cubic is generally known for performing better in high-bandwidth,
+ high-latency environments,
+  while TCP Reno might respond more aggressively to packet losses.
+For high packet loss scenarios,
+ TCP Cubic may perform better because it has a more gradual approach to congestion avoidance,
+  allowing it to handle losses more effectively. 
+However, the specific performance can depend on various factors like network characteristics and configurations.
+
+To determine which algorithm gave better results overall and in high packet loss scenarios,
+ you would typically need to conduct experiments and collect data in specific network conditions. 
+ Measure metrics such as throughput, latency, 
+ and packet loss rates to make a conclusion based on the observed behavior of each algorithm in your specific test environment.
+
+The performance of Reliable UDP compared to regular TCP depends on the specific implementation and the nature of the network.
+ Reliable UDP is often used in scenarios where low latency is crucial,
+  but it might not perform as well as TCP in terms of congestion control and reliable data delivery.
+In high packet loss scenarios,
+ TCP may have an advantage due to its congestion control mechanisms and retransmission strategies.
+  TCP is designed to be reliable in various network conditions,
+   but it may sacrifice low-latency performance compared to UDP.
+
+TCP is generally preferred in scenarios where reliability,
+ ordered delivery, and congestion control are critical,
+  such as file transfers, web browsing, and email communication.
+   Reliable UDP, on the other hand,
+    might be preferred in scenarios where low-latency communication is crucial,
+     like real-time applications (e.g., online gaming, live streaming) 
+     where occasional packet loss might be acceptable.
+Remember that these preferences can vary based on specific use cases and application requirements. 
+It's essential to consider the trade-offs between reliability, latency, 
+and throughput when choosing between TCP and reliable UDP. 
+Actual performance may vary, 
+so testing in the specific context of your application is advisable.

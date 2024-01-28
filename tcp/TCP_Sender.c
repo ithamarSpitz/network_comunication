@@ -134,6 +134,7 @@ int main(int argc, char *argv[]) {
     }
 
     close(sockfd);
+    remove(FILE_PATH);
 
     return 0;
 }

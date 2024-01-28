@@ -28,36 +28,6 @@ typedef struct {
     char payload[MAX_PACKET_SIZE - sizeof(RUDPPacketHeader)];
 } RUDPPacket;
 
-void print_sockaddr(const struct sockaddr *addr) {
-    char ip_str[INET6_ADDRSTRLEN];  // Buffer for the IP address string
-
-    if (addr->sa_family == AF_INET) {
-        const struct sockaddr_in *ipv4_addr = (const struct sockaddr_in *)addr;
-
-        // Convert the binary IPv4 address to a human-readable string
-        if (inet_ntop(AF_INET, &(ipv4_addr->sin_addr), ip_str, INET_ADDRSTRLEN) == NULL) {
-            perror("Error converting IPv4 address to string");
-            return;
-        }
-
-        // Print the IPv4 address and port
-        printf("IPv4: %s, Port: %d\n", ip_str, ntohs(ipv4_addr->sin_port));
-    } else if (addr->sa_family == AF_INET6) {
-        const struct sockaddr_in6 *ipv6_addr = (const struct sockaddr_in6 *)addr;
-
-        // Convert the binary IPv6 address to a human-readable string
-        if (inet_ntop(AF_INET6, &(ipv6_addr->sin6_addr), ip_str, INET6_ADDRSTRLEN) == NULL) {
-            perror("Error converting IPv6 address to string");
-            return;
-        }
-
-        // Print the IPv6 address and port
-        printf("IPv6: %s, Port: %d\n", ip_str, ntohs(ipv6_addr->sin6_port));
-    } else {
-        printf("Unsupported address family\n");
-    }
-}
-
 RUDPPacket create_packet(void *data, size_t length, const struct sockaddr *dest_addr, socklen_t addrlen, uint16_t ack_number){    
     RUDPPacket packet;
     memset(&packet, 0, sizeof(packet));
@@ -98,7 +68,6 @@ int RUDP_receive_ACK(int socket, uint16_t ack_number){
         perror("Error receiving data");
         return -1;
     }
-    uint16_t length_field = packet.header.length;
     uint16_t ack_field = ntohs(packet.header.ack_number);
     if ((ack_field == ack_number)
         &&(memcmp(packet.payload, "RUDP_ACK", strlen("RUDP_ACK"))) ) {
@@ -137,7 +106,7 @@ int RUDP_send(int socket, char *data, size_t length, const struct sockaddr *dest
     return 0;
 }
 
-int RUDP_receive(int socket, void *buffer, size_t length,const  struct sockaddr *addr) {
+int RUDP_receive(int socket, void *buffer, const  struct sockaddr *addr) {
     RUDPPacket packet;
     struct sockaddr_in client_address;
     socklen_t addr_len = sizeof(client_address);
@@ -155,7 +124,7 @@ int RUDP_receive(int socket, void *buffer, size_t length,const  struct sockaddr 
     sender_addr.sin_port = htons(packet.header.sender_port);
     struct in_addr ip_addr;
     ip_addr.s_addr = packet.header.sender_ip;
-    inet_aton(inet_ntoa(ip_addr), &sender_addr.sin_addr); 
+    inet_pton(AF_INET, inet_ntoa(ip_addr), &(sender_addr.sin_addr));
     socklen_t addrlen = sizeof(sender_addr);  // Set the addrlen
     
     uint16_t length_field = packet.header.length;
